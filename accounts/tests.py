@@ -5,6 +5,7 @@ Covers US-1 (register/login) and US-2 (manage profile / opt-in) end to end
 through the actual REST API, using DRF's test client.
 """
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -93,3 +94,25 @@ class LoginAndProfileTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.student.refresh_from_db()
         self.assertTrue(self.student.groupstudy_opt_in)
+
+
+class StudentAdminTests(TestCase):
+    def setUp(self):
+        self.superuser = Student.objects.create_superuser(
+            username="admintest", email="admintest@example.com", password="a-strong-password-123"
+        )
+        self.client.login(username="admintest", password="a-strong-password-123")
+
+    def test_changelist_renders(self):
+        response = self.client.get("/admin/accounts/student/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "groupstudy_opt_in")
+
+    def test_add_form_renders(self):
+        response = self.client.get("/admin/accounts/student/add/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_change_form_renders(self):
+        response = self.client.get(f"/admin/accounts/student/{self.superuser.pk}/change/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "groupstudy_opt_in")
