@@ -7,6 +7,7 @@ from django.db import models
 
 
 class Subject(models.Model):
+    code = models.CharField(max_length=20, unique=True, help_text="Short course code, e.g. 'CSC301'.")
     name = models.CharField(max_length=100, unique=True)
 
     class Meta:
