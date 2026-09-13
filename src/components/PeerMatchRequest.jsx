@@ -9,6 +9,7 @@ const PeerMatchRequest = () => {
   const [matchResult, setMatchResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState(null);
 
   useEffect(() => {
     // Load enrolled subjects
@@ -23,11 +24,19 @@ const PeerMatchRequest = () => {
 
     setLoading(true);
     setError(null);
+    setInfoMessage(null);
     setMatchResult(null);
 
     try {
       const data = await requestMatch(selectedSubject);
-      setMatchResult(data);
+      // A real match is a 201 with a Match object (has an id). "No candidates
+      // found" comes back as a 200 with just {"detail": "..."} -- treat that
+      // as informational, not as a match to render.
+      if (data && data.id) {
+        setMatchResult(data);
+      } else {
+        setInfoMessage(data?.detail || 'No candidate study peers found for this subject yet.');
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'No candidate study peers found.');
     } finally {
@@ -69,6 +78,12 @@ const PeerMatchRequest = () => {
       </form>
 
       {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+
+      {infoMessage && (
+        <p style={{ color: '#4a5568', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
+          {infoMessage}
+        </p>
+      )}
 
       {matchResult && (
         <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e9f5ff', borderRadius: '6px' }}>
