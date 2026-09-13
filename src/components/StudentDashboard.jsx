@@ -1,11 +1,13 @@
 // src/components/StudentDashboard.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
 
-const StudentDashboard = ({ onNavigate }) => {
+const StudentDashboard = () => {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [matches, setMatches] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -74,7 +76,7 @@ const StudentDashboard = ({ onNavigate }) => {
         </div>
         <div>
           <button
-            onClick={() => onNavigate && onNavigate('availability')}
+            onClick={() => navigate('/availability')}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: '#ffffff',
@@ -89,7 +91,7 @@ const StudentDashboard = ({ onNavigate }) => {
             Availability Grid
           </button>
           <button
-            onClick={() => onNavigate && onNavigate('assessment')}
+            onClick={() => navigate('/assessment')}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: '#ebf8ff',
