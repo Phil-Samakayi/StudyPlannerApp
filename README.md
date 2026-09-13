@@ -1,35 +1,69 @@
-# StudyPlannerApp-
-A Study planner that uses AI to match students in Group Studies based on complementary strengths and weaknesses.
+# StudyPlannerApp
 
-===========================================================================================
-B. YABE
-Sprint 1
-CORE USERS: Students
-Admins exist to help guide the flow of student interactions as well as help improve the system.
-=============================================================================================================================================================================================
-created assessments/serializers.py and assessments/views.py
-This serializer handles:
+An AI-assisted study planner for university students. StudyPlannerApp helps
+students track their coursework, self-assess their strengths and weaknesses
+per subject, and get matched with complementary peers for GroupStudy
+sessions — replacing the "form a group with whoever's in your class" status
+quo with a data-informed match.
 
-    Validation ensuring strength_score and weakness_score are within the valid 1–5 range.
+Built as a final-year Computing & Informatics project at the University of
+Zambia.
 
-    Nesting or referencing the Subject model.
+## Core Features
 
-    Clean bulk-upsert or individual updates using update_or_create logic.
+- **Accounts** — student registration/login with JWT authentication
+  (`accounts`), custom user model + student profile.
+- **Subjects** — a course catalog students enroll against (`subjects`).
+- **Self-Assessments** — students rate their strength/weakness (1–5) per
+  subject (`assessments`), which feeds the matching engine.
+- **AI Peer Matching** — a cosine-similarity engine over self-assessment
+  vectors recommends complementary study partners for a subject
+  (`matching`), so a student strong in a topic is matched with one who
+  needs help in it, and vice versa.
+- **GroupStudy Sessions** — once matched, students schedule a study session
+  for a specific date/time, mark it complete, and leave feedback/ratings
+  afterwards (`matching`).
+- **Scheduling** — weekly recurring availability slots and personal study
+  sessions (`scheduling`).
 
-This viewset implements:
+## Tech Stack
 
-    RESTful CRUD operations via Django REST Framework ModelViewSet.
+- **Backend:** Django + Django REST Framework, JWT auth via
+  `djangorestframework-simplejwt`, SQLite (dev), scikit-learn for the
+  matching engine.
+- **Frontend:** React (Vite), `react-router-dom`, `axios`.
 
-    Security controls restricting students to reading and modifying only their own self-assessments (IsAuthenticated + queryset filtering).
+## Project Structure
 
-    An extra endpoint (/api/assessments/bulk_submit/) allowing frontend React components to submit all subject ratings in a single HTTP POST request.
+```
+accounts/      Custom user + student profile, JWT auth, registration
+subjects/      Course catalog
+assessments/   Self-assessment scores (strength/weakness per subject)
+matching/      Peer matching engine, GroupStudy sessions, feedback
+scheduling/    Weekly availability slots, personal study sessions
+config/        Project settings, root URL routing
+src/           React frontend (components, services, routing)
+```
 
-==============================================================================================================================================================================================
-Key Backend Components Completedaccounts: Custom User authentication & Student Profile models, Views, Serializers, URLs.subjects: Course catalog model, views, and read/write permission router.assessments: Self-Assessment score model ($1\text{--}5$ strength/weakness ratings) & CRUD views.matching: Cosine similarity algorithm (scikit-learn), Match & Participant tracking, Group Sessions, Feedback ratings & AI metrics.scheduling: Weekly availability recurring slots (ScheduleSlot) and personal study sessions (StudySession).config: urls.py and settings.py routing, JWT settings, CORS, and auth overrides.
-=============================================================================================================================================================================================
+## API Overview
+
+All endpoints are rooted at `/api/`:
+
+| Prefix | Purpose |
+|---|---|
+| `/api/auth/token/`, `/api/auth/token/refresh/` | JWT login/refresh |
+| `/api/accounts/register/`, `/api/accounts/login/`, `/api/accounts/profile/` | Registration & profile |
+| `/api/subjects/` | Course catalog (read for students, write for staff) |
+| `/api/assessments/`, `/api/assessments/bulk_submit/` | Self-assessment CRUD |
+| `/api/matching/matches/`, `/api/matching/matches/request-match/` | Request/view peer matches |
+| `/api/matching/sessions/`, `/api/matching/sessions/<id>/complete/` | Schedule & complete GroupStudy sessions |
+| `/api/matching/feedback/` | Post-session feedback & ratings |
+| `/api/scheduling/slots/`, `/api/scheduling/sessions/` | Weekly availability & personal study sessions |
+
 ## Setup & Running Locally
 
 ### Backend (Django)
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
@@ -38,16 +72,35 @@ python3 manage.py migrate
 python3 manage.py createsuperuser   # optional, for /admin/ and creating Subjects
 python3 manage.py runserver
 ```
+
 API will be available at http://localhost:8000/api/
 
 ### Frontend (React + Vite)
+
 ```bash
 npm install
 npm run dev
 ```
+
 App will be available at http://localhost:5173/
 
-Note: Subjects (course catalog) can only be created by an admin/staff user, via
-Django admin (`/admin/`) or the API with a staff account. Seed a few subjects
-(e.g. code="CSC301", name="Data Structures") before registering students so
-the Self-Assessment and Peer Match screens have data to show.
+> **Note:** Subjects (course catalog) can currently only be created by an
+> admin/staff user, via Django admin (`/admin/`) or the API with a staff
+> account. Seed a few subjects (e.g. `code="CSC301"`, `name="Data
+> Structures"`) before registering students, so the Self-Assessment and
+> Peer Match screens have data to show.
+
+## Running the Test Suite
+
+```bash
+python3 manage.py test
+```
+
+55 tests across all five apps (accounts, subjects, assessments, scheduling,
+matching), covering models, serializers, permissions, and the matching
+engine.
+
+## Contributors
+
+- Blessing Yabe
+- Phil Samakayi
