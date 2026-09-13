@@ -5,6 +5,61 @@ import api from '../services/api';
 import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
+import { scheduleSession, completeSession } from '../services/matchService';
+
+// Lets a student pick a time and turn one of their Matches into a
+// scheduled GroupStudySession. Each row owns its own input state, so this
+// lives outside the list `.map()` as its own component.
+const ScheduleSessionForm = ({ matchId, onScheduled }) => {
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSchedule = async () => {
+    if (!scheduledTime) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await scheduleSession(matchId, new Date(scheduledTime).toISOString());
+      onScheduled();
+    } catch (err) {
+      const data = err.response?.data;
+      const detail = data?.scheduled_time?.[0] || data?.match?.[0] || data?.detail || 'Could not schedule session.';
+      setError(String(detail));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          type="datetime-local"
+          value={scheduledTime}
+          onChange={(e) => setScheduledTime(e.target.value)}
+          style={{ padding: '0.3rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #cbd5e0' }}
+        />
+        <button
+          onClick={handleSchedule}
+          disabled={loading || !scheduledTime}
+          style={{
+            padding: '0.3rem 0.75rem',
+            fontSize: '0.8rem',
+            backgroundColor: loading || !scheduledTime ? '#a0aec0' : '#38a169',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: loading || !scheduledTime ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? 'Scheduling...' : 'Schedule Session'}
+        </button>
+      </div>
+      {error && <div style={{ color: '#c53030', fontSize: '0.75rem', marginTop: '0.25rem' }}>{error}</div>}
+    </div>
+  );
+};
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -44,9 +99,35 @@ const StudentDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  // Refetches just matches/sessions without touching `loading` -- flipping
+  // `loading` unmounts the whole tab content (including PeerMatchRequest
+  // and its just-created match result, or the feedback modal), so this is
+  // what every post-action refresh below uses instead of fetchDashboardData.
+  const refreshMatchesAndSessions = async () => {
+    try {
+      const [matchesRes, sessionsRes] = await Promise.all([
+        api.get('/matching/matches/'),
+        api.get('/matching/sessions/'),
+      ]);
+      setMatches(matchesRes.data);
+      setSessions(sessionsRes.data);
+    } catch (err) {
+      setError('Failed to refresh matches and sessions.');
+    }
+  };
+
   const handleOpenFeedback = (session) => {
     setSelectedSessionForFeedback(session);
     setIsFeedbackOpen(true);
+  };
+
+  const handleCompleteSession = async (sessionId) => {
+    try {
+      await completeSession(sessionId);
+      refreshMatchesAndSessions();
+    } catch (err) {
+      setError('Failed to mark session as completed.');
+    }
   };
 
   if (loading) {
@@ -149,7 +230,7 @@ const StudentDashboard = () => {
 
       {/* Tab Content */}
       {activeTab === 'match' ? (
-        <PeerMatchRequest />
+        <PeerMatchRequest onMatchCreated={refreshMatchesAndSessions} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           {/* Active Peer Matches */}
@@ -161,14 +242,24 @@ const StudentDashboard = () => {
               </p>
             ) : (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {matches.map((m) => (
-                  <li key={m.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid #edf2f7' }}>
-                    <div style={{ fontWeight: 'bold', color: '#2b6cb0' }}>Match #{m.id}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#718096' }}>
-                      Relevance Score: {(m.relevance_score * 100).toFixed(0)}%
-                    </div>
-                  </li>
-                ))}
+                {matches.map((m) => {
+                  const existingSession = sessions.find((s) => s.match === m.id);
+                  return (
+                    <li key={m.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid #edf2f7' }}>
+                      <div style={{ fontWeight: 'bold', color: '#2b6cb0' }}>Match #{m.id}</div>
+                      <div style={{ fontSize: '0.85rem', color: '#718096' }}>
+                        Relevance Score: {(m.relevance_score * 100).toFixed(0)}%
+                      </div>
+                      {existingSession ? (
+                        <div style={{ fontSize: '0.8rem', color: '#718096', marginTop: '0.25rem' }}>
+                          Session {existingSession.status} for {new Date(existingSession.scheduled_time).toLocaleString()}
+                        </div>
+                      ) : (
+                        <ScheduleSessionForm matchId={m.id} onScheduled={refreshMatchesAndSessions} />
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -193,6 +284,22 @@ const StudentDashboard = () => {
                           {new Date(s.scheduled_time).toLocaleString()} · {s.status}
                         </div>
                       </div>
+                      {s.status === 'scheduled' && (
+                        <button
+                          onClick={() => handleCompleteSession(s.id)}
+                          style={{
+                            padding: '0.35rem 0.75rem',
+                            fontSize: '0.8rem',
+                            backgroundColor: '#38a169',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Mark Complete
+                        </button>
+                      )}
                       {s.status === 'completed' && (
                         <button
                           onClick={() => handleOpenFeedback(s)}
@@ -223,7 +330,7 @@ const StudentDashboard = () => {
         isOpen={isFeedbackOpen}
         onClose={() => setIsFeedbackOpen(false)}
         onFeedbackSubmitted={() => {
-          fetchDashboardData();
+          refreshMatchesAndSessions();
         }}
       />
     </div>

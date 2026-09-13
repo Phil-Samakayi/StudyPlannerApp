@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { requestMatch } from '../services/matchService';
 
-const PeerMatchRequest = () => {
+const PeerMatchRequest = ({ onMatchCreated }) => {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [matchResult, setMatchResult] = useState(null);
@@ -34,6 +34,9 @@ const PeerMatchRequest = () => {
       // as informational, not as a match to render.
       if (data && data.id) {
         setMatchResult(data);
+        // The dashboard's own "Active Peer Matches" list only fetches on
+        // mount, so it won't otherwise pick up a match created here.
+        onMatchCreated && onMatchCreated();
       } else {
         setInfoMessage(data?.detail || 'No candidate study peers found for this subject yet.');
       }
