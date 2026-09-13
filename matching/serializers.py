@@ -41,6 +41,19 @@ class GroupStudySessionSerializer(serializers.ModelSerializer):
     def get_participants(self, obj):
         return UserSerializer(obj.participants, many=True).data
 
+    def validate_match(self, value):
+        """
+        A student may only schedule a GroupStudySession for a Match they were
+        actually paired into -- otherwise any authenticated user could create
+        a session (and later mark it completed) for someone else's match.
+        """
+        request = self.context.get("request")
+        if request and request.user and not value.participants.filter(student=request.user).exists():
+            raise serializers.ValidationError(
+                "You can only schedule sessions for matches you participated in."
+            )
+        return value
+
 
 class FeedbackSerializer(serializers.ModelSerializer):
     """Post-session feedback submitted by a participating student."""
@@ -69,5 +82,14 @@ class FeedbackSerializer(serializers.ModelSerializer):
             if not session.match.participants.filter(student=request.user).exists():
                 raise serializers.ValidationError(
                     "You cannot submit feedback for a session you did not participate in."
+                )
+            # Model has a DB-level UniqueConstraint on (student, session), but
+            # that isn't a `unique_together` Meta option, so DRF doesn't
+            # auto-generate a validator for it -- without this check, a
+            # resubmission crashes with an unhandled IntegrityError (500)
+            # instead of a normal 400 validation error.
+            if Feedback.objects.filter(session=session, student=request.user).exists():
+                raise serializers.ValidationError(
+                    "You have already submitted feedback for this session."
                 )
         return data
