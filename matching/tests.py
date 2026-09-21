@@ -179,6 +179,64 @@ class GroupStudySessionTests(APITestCase):
         response = self.client.post(f"{SESSIONS_URL}{session.id}/complete/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_cannot_complete_an_already_completed_session(self):
+        session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now(), status=GroupStudySessionStatus.COMPLETED
+        )
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/complete/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_complete_a_session_before_its_scheduled_time(self):
+        session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now() + timezone.timedelta(days=1)
+        )
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/complete/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        session.refresh_from_db()
+        self.assertEqual(session.status, GroupStudySessionStatus.SCHEDULED)
+
+    def test_cannot_complete_a_cancelled_session(self):
+        session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now(), status=GroupStudySessionStatus.CANCELLED
+        )
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/complete/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_participant_can_cancel_a_scheduled_session(self):
+        session = GroupStudySession.objects.create(match=self.match, scheduled_time=timezone.now())
+        self.client.force_authenticate(user=self.student_b)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/cancel/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        session.refresh_from_db()
+        self.assertEqual(session.status, GroupStudySessionStatus.CANCELLED)
+
+    def test_cannot_cancel_an_already_cancelled_session(self):
+        session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now(), status=GroupStudySessionStatus.CANCELLED
+        )
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/cancel/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_cancel_an_already_completed_session(self):
+        session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now(), status=GroupStudySessionStatus.COMPLETED
+        )
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/cancel/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        session.refresh_from_db()
+        self.assertEqual(session.status, GroupStudySessionStatus.COMPLETED)
+
+    def test_outsider_cannot_cancel_someone_elses_session(self):
+        session = GroupStudySession.objects.create(match=self.match, scheduled_time=timezone.now())
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.post(f"{SESSIONS_URL}{session.id}/cancel/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
 
 class FeedbackTests(APITestCase):
     def setUp(self):

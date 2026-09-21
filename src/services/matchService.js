@@ -44,3 +44,8 @@ export const completeSession = async (sessionId) => {
   const response = await api.post(`/matching/sessions/${sessionId}/complete/`);
   return response.data;
 };
+
+export const cancelSession = async (sessionId) => {
+  const response = await api.post(`/matching/sessions/${sessionId}/cancel/`);
+  return response.data;
+};

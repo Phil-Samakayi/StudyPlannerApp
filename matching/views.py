@@ -1,5 +1,6 @@
 # matching/views.py
 from django.db.models import Avg, Count
+from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -73,10 +74,56 @@ class GroupStudySessionViewSet(viewsets.ModelViewSet):
         Marks session as COMPLETED, enabling feedback collection (US-08).
         """
         session = self.get_object()
+
+        if session.status == GroupStudySessionStatus.CANCELLED:
+            return Response(
+                {"detail": "This session was cancelled and cannot be marked as completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if session.status == GroupStudySessionStatus.COMPLETED:
+            return Response(
+                {"detail": "This session has already been marked as completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if timezone.now() < session.scheduled_time:
+            return Response(
+                {"detail": "This session cannot be completed before its scheduled time."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         session.status = GroupStudySessionStatus.COMPLETED
         session.save()
         return Response(
             {"detail": "Session marked as completed. Feedback is now enabled.", "status": session.status},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        """
+        POST /api/sessions/{id}/cancel/
+        Cancels a scheduled session (opts out of it). Only a participant of the
+        underlying Match may cancel it -- enforced by get_queryset(), same as
+        complete/. A session that's already completed or already cancelled
+        cannot be cancelled again.
+        """
+        session = self.get_object()
+
+        if session.status == GroupStudySessionStatus.COMPLETED:
+            return Response(
+                {"detail": "This session has already been completed and cannot be cancelled."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if session.status == GroupStudySessionStatus.CANCELLED:
+            return Response(
+                {"detail": "This session has already been cancelled."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        session.status = GroupStudySessionStatus.CANCELLED
+        session.save()
+        return Response(
+            {"detail": "Session cancelled.", "status": session.status},
             status=status.HTTP_200_OK
         )
 

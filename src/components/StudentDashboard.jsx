@@ -5,7 +5,7 @@ import api from '../services/api';
 import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
-import { scheduleSession, completeSession } from '../services/matchService';
+import { scheduleSession, completeSession, cancelSession } from '../services/matchService';
 
 // Lets a student pick a time and turn one of their Matches into a
 // scheduled GroupStudySession. Each row owns its own input state, so this
@@ -126,7 +126,19 @@ const StudentDashboard = () => {
       await completeSession(sessionId);
       refreshMatchesAndSessions();
     } catch (err) {
-      setError('Failed to mark session as completed.');
+      const detail = err.response?.data?.detail || 'Failed to mark session as completed.';
+      setError(String(detail));
+    }
+  };
+
+  const handleCancelSession = async (sessionId) => {
+    if (!window.confirm('Cancel this GroupStudy session?')) return;
+    try {
+      await cancelSession(sessionId);
+      refreshMatchesAndSessions();
+    } catch (err) {
+      const detail = err.response?.data?.detail || 'Failed to cancel session.';
+      setError(String(detail));
     }
   };
 
@@ -285,20 +297,36 @@ const StudentDashboard = () => {
                         </div>
                       </div>
                       {s.status === 'scheduled' && (
-                        <button
-                          onClick={() => handleCompleteSession(s.id)}
-                          style={{
-                            padding: '0.35rem 0.75rem',
-                            fontSize: '0.8rem',
-                            backgroundColor: '#38a169',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Mark Complete
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={() => handleCompleteSession(s.id)}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              fontSize: '0.8rem',
+                              backgroundColor: '#38a169',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Mark Complete
+                          </button>
+                          <button
+                            onClick={() => handleCancelSession(s.id)}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              fontSize: '0.8rem',
+                              backgroundColor: '#fff5f5',
+                              color: '#c53030',
+                              border: '1px solid #feb2b2',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       )}
                       {s.status === 'completed' && (
                         <button
