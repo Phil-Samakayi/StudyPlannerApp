@@ -1,6 +1,7 @@
 # scheduling/serializers.py
+from django.utils import timezone
 from rest_framework import serializers
-from .models import ScheduleSlot, StudySession, DayOfWeek
+from .models import ScheduleSlot, StudySession, SubjectGoal, DayOfWeek
 
 
 class ScheduleSlotSerializer(serializers.ModelSerializer):
@@ -79,3 +80,35 @@ class StudySessionSerializer(serializers.ModelSerializer):
                 )
 
         return data
+
+
+class SubjectGoalSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+
+    class Meta:
+        model = SubjectGoal
+        fields = [
+            "id",
+            "student",
+            "subject",
+            "subject_name",
+            "description",
+            "target_date",
+            "achieved",
+            "created_at",
+        ]
+        read_only_fields = ["id", "student", "created_at"]
+
+    def validate_description(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("Goal description cannot be empty.")
+        return cleaned
+
+    def validate_target_date(self, value):
+        # Only enforce "not in the past" on creation -- an existing goal
+        # whose date has since passed should still be editable (e.g. to
+        # mark it achieved), not locked out by this check.
+        if self.instance is None and value < timezone.localdate():
+            raise serializers.ValidationError("Target date cannot be in the past.")
+        return value

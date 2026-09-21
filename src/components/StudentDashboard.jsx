@@ -5,6 +5,7 @@ import api from '../services/api';
 import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
+import SubjectGoals from './SubjectGoals';
 import { scheduleSession, completeSession, cancelSession } from '../services/matchService';
 
 // Lets a student pick a time and turn one of their Matches into a
@@ -73,7 +74,7 @@ const StudentDashboard = () => {
   const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState(null);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
-  // Active view tab state within dashboard: 'overview' | 'match'
+  // Active view tab state within dashboard: 'overview' | 'match' | 'goals'
   const [activeTab, setActiveTab] = useState('overview');
 
   const fetchDashboardData = async () => {
@@ -238,11 +239,28 @@ const StudentDashboard = () => {
         >
           Find AI Peer Match
         </button>
+        <button
+          onClick={() => setActiveTab('goals')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            borderBottom: activeTab === 'goals' ? '3px solid #3182ce' : 'none',
+            backgroundColor: 'transparent',
+            fontWeight: activeTab === 'goals' ? 'bold' : 'normal',
+            color: activeTab === 'goals' ? '#3182ce' : '#4a5568',
+            cursor: 'pointer',
+            fontSize: '1rem'
+          }}
+        >
+          My Goals
+        </button>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'match' ? (
         <PeerMatchRequest onMatchCreated={refreshMatchesAndSessions} />
+      ) : activeTab === 'goals' ? (
+        <SubjectGoals />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           {/* Active Peer Matches */}

@@ -1,6 +1,6 @@
 # scheduling/admin.py
 from django.contrib import admin
-from .models import ScheduleSlot, StudySession
+from .models import ScheduleSlot, StudySession, SubjectGoal
 
 
 @admin.register(ScheduleSlot)
@@ -13,3 +13,10 @@ class ScheduleSlotAdmin(admin.ModelAdmin):
 class StudySessionAdmin(admin.ModelAdmin):
     list_display = ["student", "subject", "start_time", "end_time"]
     list_filter = ["subject"]
+
+
+@admin.register(SubjectGoal)
+class SubjectGoalAdmin(admin.ModelAdmin):
+    list_display = ["student", "subject", "description", "target_date", "achieved"]
+    list_filter = ["subject", "achieved"]
+    search_fields = ["description"]

@@ -3,8 +3,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import ScheduleSlot, StudySession
-from .serializers import ScheduleSlotSerializer, StudySessionSerializer
+from .models import ScheduleSlot, StudySession, SubjectGoal
+from .serializers import ScheduleSlotSerializer, StudySessionSerializer, SubjectGoalSerializer
 
 
 class ScheduleSlotViewSet(viewsets.ModelViewSet):
@@ -58,3 +58,33 @@ class StudySessionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(student=self.request.user)
+
+
+class SubjectGoalViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for a student's standalone subject goals (FR-026) -- a
+    target/date for a subject, independent of any one StudySession.
+    Maps to SUBJECT_GOAL table.
+    """
+    serializer_class = SubjectGoalSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return SubjectGoal.objects.filter(student=self.request.user).select_related("subject")
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="mark-achieved")
+    def mark_achieved(self, request, pk=None):
+        """
+        POST /api/scheduling/goals/{id}/mark-achieved/
+        Convenience endpoint so the frontend doesn't need a full PATCH
+        payload just to flip one boolean.
+        """
+        goal = self.get_object()
+        if goal.achieved:
+            return Response({"detail": "This goal is already marked as achieved."}, status=status.HTTP_400_BAD_REQUEST)
+        goal.achieved = True
+        goal.save()
+        return Response(SubjectGoalSerializer(goal).data, status=status.HTTP_200_OK)

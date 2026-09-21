@@ -87,3 +87,42 @@ class StudySession(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.subject} ({self.start_time:%Y-%m-%d %H:%M})"
+
+
+class SubjectGoal(models.Model):
+    """
+    A standalone study goal for a subject -- independent of any one
+    StudySession. Addresses Proposal Objective 1's "manage ... subject
+    goals", which the free-text `goal` field on StudySession does not:
+    that field only describes a single session, with no target/date and
+    no way to track progress across many sessions toward the same aim.
+    """
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="subject_goals",
+    )
+    subject = models.ForeignKey(
+        "subjects.Subject",
+        on_delete=models.CASCADE,
+        related_name="goals",
+    )
+    description = models.CharField(
+        max_length=255,
+        help_text="What you're aiming to achieve, e.g. 'Master linked lists before the midterm'.",
+    )
+    target_date = models.DateField()
+    achieved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "subject_goal"
+        indexes = [
+            models.Index(fields=["student", "subject"], name="idx_goal_student_subject"),
+        ]
+        ordering = ["target_date"]
+
+    def __str__(self):
+        status = "achieved" if self.achieved else "in progress"
+        return f"{self.student} - {self.subject}: {self.description} (by {self.target_date}, {status})"
