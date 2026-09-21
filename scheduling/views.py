@@ -35,7 +35,7 @@ class ScheduleSlotViewSet(viewsets.ModelViewSet):
         ScheduleSlot.objects.filter(student=request.user).delete()
         created_slots = []
         for slot in slots_data:
-            serializer = ScheduleSlotSerializer(data=slot)
+            serializer = ScheduleSlotSerializer(data=slot, context={"request": request})
             serializer.is_valid(raise_exception=True)
             created_slots.append(serializer.save(student=request.user))
 

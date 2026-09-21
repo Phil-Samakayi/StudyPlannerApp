@@ -76,6 +76,59 @@ class ScheduleSlotTests(APITestCase):
         }, format="json")
         self.assertTrue(ScheduleSlot.objects.filter(student=self.other_student, day_of_week=0).exists())
 
+    def test_overlapping_slot_on_same_day_is_rejected(self):
+        ScheduleSlot.objects.create(
+            student=self.student, day_of_week=1, start_time="14:00:00", end_time="16:00:00"
+        )
+        response = self.client.post(SLOTS_URL, {
+            "day_of_week": 1, "start_time": "15:00:00", "end_time": "17:00:00",
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScheduleSlot.objects.filter(student=self.student).count(), 1)
+
+    def test_back_to_back_slots_on_same_day_are_allowed(self):
+        ScheduleSlot.objects.create(
+            student=self.student, day_of_week=1, start_time="14:00:00", end_time="16:00:00"
+        )
+        response = self.client.post(SLOTS_URL, {
+            "day_of_week": 1, "start_time": "16:00:00", "end_time": "17:00:00",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_overlapping_slot_on_a_different_day_is_allowed(self):
+        ScheduleSlot.objects.create(
+            student=self.student, day_of_week=1, start_time="14:00:00", end_time="16:00:00"
+        )
+        response = self.client.post(SLOTS_URL, {
+            "day_of_week": 2, "start_time": "14:00:00", "end_time": "16:00:00",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_overlapping_slot_from_another_student_is_allowed(self):
+        ScheduleSlot.objects.create(
+            student=self.other_student, day_of_week=1, start_time="14:00:00", end_time="16:00:00"
+        )
+        response = self.client.post(SLOTS_URL, {
+            "day_of_week": 1, "start_time": "14:00:00", "end_time": "16:00:00",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_updating_a_slot_does_not_conflict_with_itself(self):
+        slot = ScheduleSlot.objects.create(
+            student=self.student, day_of_week=1, start_time="14:00:00", end_time="16:00:00"
+        )
+        response = self.client.patch(f"{SLOTS_URL}{slot.id}/", {"end_time": "16:30:00"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+    def test_bulk_update_rejects_internally_overlapping_slots(self):
+        response = self.client.post(BULK_UPDATE_URL, {
+            "slots": [
+                {"day_of_week": 1, "start_time": "14:00:00", "end_time": "16:00:00"},
+                {"day_of_week": 1, "start_time": "15:00:00", "end_time": "17:00:00"},
+            ]
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class StudySessionTests(APITestCase):
     def setUp(self):
@@ -107,3 +160,51 @@ class StudySessionTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(SESSIONS_URL)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_overlapping_study_session_is_rejected(self):
+        StudySession.objects.create(
+            student=self.student, subject=self.subject,
+            start_time="2026-09-20T14:00:00Z", end_time="2026-09-20T16:00:00Z",
+        )
+        response = self.client.post(SESSIONS_URL, {
+            "subject": self.subject.id,
+            "start_time": "2026-09-20T15:00:00Z",
+            "end_time": "2026-09-20T17:00:00Z",
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(StudySession.objects.filter(student=self.student).count(), 1)
+
+    def test_back_to_back_study_sessions_are_allowed(self):
+        StudySession.objects.create(
+            student=self.student, subject=self.subject,
+            start_time="2026-09-20T14:00:00Z", end_time="2026-09-20T16:00:00Z",
+        )
+        response = self.client.post(SESSIONS_URL, {
+            "subject": self.subject.id,
+            "start_time": "2026-09-20T16:00:00Z",
+            "end_time": "2026-09-20T17:00:00Z",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_overlapping_study_session_from_another_student_is_allowed(self):
+        other_student = CustomUser.objects.create_user(
+            email="session.other@unza.zm", password="strongpass123", full_name="Session Other"
+        )
+        StudySession.objects.create(
+            student=other_student, subject=self.subject,
+            start_time="2026-09-20T14:00:00Z", end_time="2026-09-20T16:00:00Z",
+        )
+        response = self.client.post(SESSIONS_URL, {
+            "subject": self.subject.id,
+            "start_time": "2026-09-20T14:00:00Z",
+            "end_time": "2026-09-20T16:00:00Z",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_updating_a_study_session_does_not_conflict_with_itself(self):
+        session = StudySession.objects.create(
+            student=self.student, subject=self.subject,
+            start_time="2026-09-20T14:00:00Z", end_time="2026-09-20T16:00:00Z",
+        )
+        response = self.client.patch(f"{SESSIONS_URL}{session.id}/", {"end_time": "2026-09-20T16:30:00Z"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
