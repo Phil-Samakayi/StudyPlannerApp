@@ -6,7 +6,9 @@ import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
 import SubjectGoals from './SubjectGoals';
+import UpcomingReminders from './UpcomingReminders';
 import { scheduleSession, completeSession, cancelSession } from '../services/matchService';
+import { getMyStudySessions } from '../services/scheduleService';
 
 // Lets a student pick a time and turn one of their Matches into a
 // scheduled GroupStudySession. Each row owns its own input state, so this
@@ -67,6 +69,7 @@ const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [matches, setMatches] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [personalSessions, setPersonalSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -80,15 +83,17 @@ const StudentDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [profileData, matchesRes, sessionsRes] = await Promise.all([
+      const [profileData, matchesRes, sessionsRes, personalSessionsData] = await Promise.all([
         getProfile(),
         api.get('/matching/matches/'),
         api.get('/matching/sessions/'),
+        getMyStudySessions(),
       ]);
 
       setProfile(profileData);
       setMatches(matchesRes.data);
       setSessions(sessionsRes.data);
+      setPersonalSessions(personalSessionsData);
     } catch (err) {
       setError('Failed to load dashboard data. Please try again.');
     } finally {
@@ -106,12 +111,14 @@ const StudentDashboard = () => {
   // what every post-action refresh below uses instead of fetchDashboardData.
   const refreshMatchesAndSessions = async () => {
     try {
-      const [matchesRes, sessionsRes] = await Promise.all([
+      const [matchesRes, sessionsRes, personalSessionsData] = await Promise.all([
         api.get('/matching/matches/'),
         api.get('/matching/sessions/'),
+        getMyStudySessions(),
       ]);
       setMatches(matchesRes.data);
       setSessions(sessionsRes.data);
+      setPersonalSessions(personalSessionsData);
     } catch (err) {
       setError('Failed to refresh matches and sessions.');
     }
@@ -200,6 +207,8 @@ const StudentDashboard = () => {
           </button>
         </div>
       </header>
+
+      <UpcomingReminders personalSessions={personalSessions} groupSessions={sessions} />
 
       {error && (
         <div style={{ padding: '1rem', backgroundColor: '#fff5f5', color: '#c53030', borderRadius: '6px', marginBottom: '1.5rem' }}>

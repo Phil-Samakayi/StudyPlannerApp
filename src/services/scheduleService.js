@@ -5,6 +5,11 @@
 // growing inside a file named after a different app.
 import api from './api';
 
+export const getMyStudySessions = async () => {
+  const response = await api.get('/scheduling/sessions/');
+  return response.data;
+};
+
 export const getMyGoals = async () => {
   const response = await api.get('/scheduling/goals/');
   return response.data;
