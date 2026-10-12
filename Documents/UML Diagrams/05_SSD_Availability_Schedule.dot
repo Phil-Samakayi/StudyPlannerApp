@@ -1,0 +1,15 @@
+
+digraph G {
+ graph [rankdir=LR, bgcolor="white", fontname="Arial", nodesep=0.35, ranksep=0.6];
+ node [shape=box, style="rounded", fontname="Arial", fontsize=9];
+ edge [fontname="Arial", fontsize=8, color="#444444"];
+ S [label="Student"]; UI [label="React UI"]; API [label="Django Scheduling API"]; DB [label="Database"];
+ S -> UI [label="select weekly free slots"];
+ UI -> API [label="POST /api/scheduling/slots/bulk-update/"];
+ API -> DB [label="delete existing slots for student"];
+ API -> API [label="validate each slot"];
+ API -> DB [label="create ScheduleSlot rows"];
+ DB -> API [label="created slots"];
+ API -> UI [label="201 slot list"];
+ UI -> S [label="show saved availability"];
+}

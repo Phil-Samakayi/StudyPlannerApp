@@ -1,0 +1,49 @@
+
+digraph G {
+ graph [rankdir=LR, bgcolor="white", nodesep=0.5, ranksep=0.7, fontname="Arial"];
+ node [shape=record, style="filled", fillcolor="white", color="#333333", fontname="Arial", fontsize=8];
+ edge [color="#444444", fontname="Arial", fontsize=8];
+ UserController [label="{AccountController|+ register()\l+ login()\l+ refreshToken()\l+ getProfile()\l}"];
+ AssessmentController [label="{AssessmentController|+ list()\l+ create()\l+ update()\l+ delete()\l+ bulkSubmit()\l}"];
+ SchedulingController [label="{SchedulingController|+ listSlots()\l+ bulkUpdateSlots()\l+ createSession()\l+ updateSession()\l}"];
+ MatchController [label="{MatchController|+ requestMatch()\l+ listMyMatches()\l}"];
+ SessionController [label="{GroupStudySessionController|+ schedule()\l+ complete()\l}"];
+ FeedbackController [label="{FeedbackController|+ create()\l+ metrics()\l}"];
+ MatchingService [label="{MatchingService|+ generatePeerMatches()\l- buildRequestVector()\l- scoreCandidate()\l- applyAvailabilityPenalty()\l}"];
+ AssessmentRepo [label="{SelfAssessmentRepository|+ findByStudentSubject()\l+ findCandidates()\l}"];
+ SlotRepo [label="{ScheduleSlotRepository|+ findByStudent()\l}"];
+ MatchRepo [label="{MatchRepository|+ createMatch()\l+ addParticipant()\l+ findForStudent()\l}"];
+ SessionRepo [label="{GroupStudySessionRepository|+ create()\l+ findForStudent()\l+ markCompleted()\l}"];
+ FeedbackRepo [label="{FeedbackRepository|+ create()\l+ aggregateMetrics()\l}"];
+ Student [label="{Student/User|id, email, fullName, role}"];
+ Subject [label="{Subject|id, code, name}"];
+ Assessment [label="{SelfAssessment|student, subject, strengthScore, weaknessScore}"];
+ Slot [label="{ScheduleSlot|student, day, start, end}"];
+ Study [label="{StudySession|student, subject, start, end, goal}"];
+ Match [label="{Match|relevanceScore, createdAt}"];
+ GSS [label="{GroupStudySession|match, scheduledTime, status}"];
+ Feedback [label="{Feedback|student, session, rating, comment}"];
+
+ UserController -> Student;
+ AssessmentController -> AssessmentRepo;
+ SchedulingController -> SlotRepo;
+ SchedulingController -> Study;
+ MatchController -> MatchingService;
+ MatchController -> MatchRepo;
+ SessionController -> SessionRepo;
+ FeedbackController -> FeedbackRepo;
+ MatchingService -> AssessmentRepo;
+ MatchingService -> SlotRepo;
+ MatchingService -> MatchRepo;
+ AssessmentRepo -> Assessment;
+ SlotRepo -> Slot;
+ MatchRepo -> Match;
+ SessionRepo -> GSS;
+ FeedbackRepo -> Feedback;
+ Assessment -> Student;
+ Assessment -> Subject;
+ Study -> Student; Study -> Subject;
+ Match -> Student [label="via MatchParticipant"];
+ GSS -> Match;
+ Feedback -> Student; Feedback -> GSS;
+}

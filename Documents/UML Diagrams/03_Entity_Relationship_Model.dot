@@ -1,0 +1,28 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", nodesep=0.4, ranksep=0.8, fontname="Arial"];
+  node [shape=plain, fontname="Arial", fontsize=8];
+  edge [color="#444444", fontname="Arial", fontsize=8];
+  Student [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>STUDENT / USER</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>email UNIQUE<BR/>full_name<BR/>role</TD></TR></TABLE>>];
+  Profile [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>STUDENT_PROFILE</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>user_id FK UNIQUE<BR/>student_number UNIQUE<BR/>program<BR/>year_of_study</TD></TR></TABLE>>];
+  Subject [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>SUBJECT</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>code UNIQUE<BR/>name UNIQUE</TD></TR></TABLE>>];
+  Assess [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>SELF_ASSESSMENT</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>student_id FK<BR/>subject_id FK<BR/>strength_score 1..5<BR/>weakness_score 1..5</TD></TR></TABLE>>];
+  Slot [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>SCHEDULE_SLOT</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>student_id FK<BR/>day_of_week<BR/>start_time<BR/>end_time</TD></TR></TABLE>>];
+  Session [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>STUDY_SESSION</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>student_id FK<BR/>subject_id FK<BR/>start_time<BR/>end_time<BR/>goal</TD></TR></TABLE>>];
+  Match [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>MATCH</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>relevance_score<BR/>created_at</TD></TR></TABLE>>];
+  MP [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>MATCH_PARTICIPANT</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>match_id FK<BR/>student_id FK<BR/>UNIQUE(match,student)</TD></TR></TABLE>>];
+  GSS [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>GROUP_STUDY_SESSION</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>match_id FK UNIQUE<BR/>scheduled_time<BR/>status</TD></TR></TABLE>>];
+  Feedback [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0"><TR><TD BGCOLOR="#eeeeee"><B>FEEDBACK</B></TD></TR><TR><TD ALIGN="LEFT">id PK<BR/>student_id FK<BR/>session_id FK<BR/>rating 1..5<BR/>comment</TD></TR></TABLE>>];
+
+  Student -> Profile [label="1 : 1"];
+  Student -> Assess [label="1 : 0..*"];
+  Subject -> Assess [label="1 : 0..*"];
+  Student -> Slot [label="1 : 0..*"];
+  Student -> Session [label="1 : 0..*"];
+  Subject -> Session [label="1 : 0..*"];
+  Match -> MP [label="1 : 2..*"];
+  Student -> MP [label="1 : 0..*"];
+  Match -> GSS [label="1 : 0..1"];
+  Student -> Feedback [label="1 : 0..*"];
+  GSS -> Feedback [label="1 : 0..*"];
+}

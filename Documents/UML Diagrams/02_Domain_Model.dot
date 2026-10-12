@@ -1,0 +1,27 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", nodesep=0.55, ranksep=0.8, fontname="Arial"];
+  node [shape=record, style="filled", fillcolor="white", color="#333333", fontname="Arial", fontsize=9];
+  edge [color="#444444", fontname="Arial", fontsize=9];
+  Student [label="{Student|studentNumber\lprogram\lyearOfStudy\l}"];
+  Subject [label="{Subject|code\lname\l}"];
+  SelfAssessment [label="{SelfAssessment|strengthScore\lweaknessScore\lupdatedAt\l}"];
+  ScheduleSlot [label="{ScheduleSlot|dayOfWeek\lstartTime\lendTime\l}"];
+  StudySession [label="{StudySession|startTime\lendTime\lgoal\l}"];
+  Match [label="{Match|relevanceScore\lcreatedAt\l}"];
+  MatchParticipant [label="{MatchParticipant|association between Student and Match\l}"];
+  GroupStudySession [label="{GroupStudySession|scheduledTime\lstatus\l}"];
+  Feedback [label="{Feedback|rating\lcomment\lsubmittedAt\l}"];
+
+  Student -> Subject [label="assesses / studies"];
+  Student -> SelfAssessment [label="1 : 0..*"];
+  Subject -> SelfAssessment [label="1 : 0..*"];
+  Student -> ScheduleSlot [label="1 : 0..*"];
+  Student -> StudySession [label="1 : 0..*"];
+  Subject -> StudySession [label="1 : 0..*"];
+  Match -> MatchParticipant [label="1 : 2..*"];
+  Student -> MatchParticipant [label="1 : 0..*"];
+  Match -> GroupStudySession [label="1 : 0..1"];
+  Student -> Feedback [label="1 : 0..*"];
+  GroupStudySession -> Feedback [label="1 : 0..*"];
+}

@@ -1,0 +1,22 @@
+
+digraph G {
+ graph [rankdir=LR, bgcolor="white", fontname="Arial", nodesep=0.35, ranksep=0.6];
+ node [shape=box, style="rounded", fontname="Arial", fontsize=9];
+ edge [fontname="Arial", fontsize=8, color="#444444"];
+ S [label="Student"]; UI [label="React UI"]; API [label="Django REST API"]; DB [label="SQLite/MySQL"]; AI [label="Matching Engine\nNumPy + scikit-learn"];
+ S -> UI [label="select subject + request match"];
+ UI -> API [label="POST /api/matching/matches/request-match/"];
+ API -> DB [label="load student's SelfAssessment"];
+ DB -> API [label="assessment"];
+ API -> DB [label="find candidate assessments + availability"];
+ DB -> API [label="candidate data"];
+ API -> AI [label="generate_peer_matches(student, subject)"];
+ AI -> DB [label="query candidate ScheduleSlot data"];
+ DB -> AI [label="availability"];
+ AI -> AI [label="build vectors + cosine similarity + availability penalty\nrank candidates; top_n=5"];
+ AI -> API [label="ranked peer results"];
+ API -> DB [label="create Match + 2 MatchParticipant rows"];
+ DB -> API [label="Match"];
+ API -> UI [label="201 MatchSerializer OR 200 no-candidate detail"];
+ UI -> S [label="display match / no match"];
+}

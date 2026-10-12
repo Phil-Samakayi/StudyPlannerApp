@@ -1,0 +1,35 @@
+
+digraph G {
+  graph [rankdir=LR, bgcolor="white", pad=0.3, nodesep=0.5, ranksep=0.8, fontname="Arial"];
+  node [shape=ellipse, style="filled", fillcolor="white", color="#333333", fontname="Arial", fontsize=10];
+  edge [color="#444444", fontname="Arial", fontsize=9];
+  student [shape=box, label="Student", style="rounded,filled", fillcolor="#f2f2f2"];
+  admin [shape=box, label="Administrator", style="rounded,filled", fillcolor="#f2f2f2"];
+  system [shape=box, label="StudyPlannerApp", style="rounded,dashed", width=7, height=7, label="StudyPlannerApp"];
+
+  register [label="Register Account"];
+  login [label="Log In"];
+  profile [label="Manage Profile"];
+  subjects [label="View Subject Catalogue"];
+  assessment [label="Manage Self-Assessment"];
+  availability [label="Manage Weekly Availability"];
+  study [label="Manage Personal Study Session"];
+  request [label="Request AI Peer Match"];
+  viewmatches [label="View My Matches"];
+  schedule [label="Schedule Group Study Session"];
+  complete [label="Complete Group Study Session"];
+  feedback [label="Submit Post-Session Feedback"];
+  metrics [label="View Feedback Metrics"];
+
+  {rank=same; register login profile subjects assessment availability study request viewmatches schedule complete feedback metrics}
+
+  student -> register; student -> login; student -> profile; student -> subjects;
+  student -> assessment; student -> availability; student -> study;
+  student -> request; student -> viewmatches; student -> schedule; student -> complete; student -> feedback;
+  admin -> subjects; admin -> metrics;
+
+  register -> login [style=dashed, label=" prerequisite"];
+  request -> viewmatches [style=dashed, label=" <<include>> "];
+  schedule -> viewmatches [style=dashed, label=" <<include>> "];
+  feedback -> complete [style=dashed, label=" <<requires completed>> "];
+}

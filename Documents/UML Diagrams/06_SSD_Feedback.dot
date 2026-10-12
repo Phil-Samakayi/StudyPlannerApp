@@ -1,0 +1,15 @@
+
+digraph G {
+ graph [rankdir=LR, bgcolor="white", fontname="Arial", nodesep=0.35, ranksep=0.6];
+ node [shape=box, style="rounded", fontname="Arial", fontsize=9];
+ edge [fontname="Arial", fontsize=8, color="#444444"];
+ S [label="Student"]; UI [label="React UI"]; API [label="Django Feedback API"]; DB [label="Database"];
+ S -> UI [label="open completed session + rate"];
+ UI -> API [label="POST /api/matching/feedback/"];
+ API -> DB [label="validate participant + session completed + no duplicate"];
+ DB -> API [label="valid session"];
+ API -> DB [label="create Feedback"];
+ DB -> API [label="Feedback"];
+ API -> UI [label="201 feedback"];
+ UI -> S [label="confirmation"];
+}

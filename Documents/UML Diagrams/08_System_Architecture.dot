@@ -1,0 +1,17 @@
+
+digraph G {
+ graph [rankdir=TB, bgcolor="white", nodesep=0.7, ranksep=0.7, fontname="Arial"];
+ node [shape=box, style="rounded,filled", fontname="Arial", fontsize=9, fillcolor="white", color="#333333"];
+ Student [label="Student\nWeb Browser"];
+ Frontend [label="Presentation Tier\nReact + Vite\nDashboard / Forms / Availability Grid"];
+ API [label="Application Tier\nDjango + Django REST Framework\nAccounts • Subjects • Assessments • Scheduling • Matching"];
+ AI [label="Matching Service (in-process)\nNumPy + scikit-learn\ncosine similarity + availability penalty"];
+ DB [label="Data Tier\nSQLite (local development)\nMySQL intended for production"];
+ JWT [label="Authentication\nSimpleJWT access + refresh tokens"];
+ Student -> Frontend [label="HTTP"];
+ Frontend -> API [label="REST/JSON"];
+ API -> AI [label="internal service call"];
+ API -> DB [label="ORM"];
+ AI -> DB [label="ORM queries"];
+ API -> JWT [label="token issue/refresh"];
+}
