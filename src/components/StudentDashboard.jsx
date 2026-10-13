@@ -6,9 +6,18 @@ import { getProfile } from '../services/authService';
 import FeedbackModal from './FeedbackModal';
 import PeerMatchRequest from './PeerMatchRequest';
 import SubjectGoals from './SubjectGoals';
+import MyStudySessions from './MyStudySessions';
 import UpcomingReminders from './UpcomingReminders';
 import { scheduleSession, completeSession, cancelSession } from '../services/matchService';
 import { getMyStudySessions } from '../services/scheduleService';
+
+// Dashboard tabs, in display order.
+const TABS = [
+  { key: 'overview', label: 'Dashboard Overview' },
+  { key: 'sessions', label: 'My Study Sessions' },
+  { key: 'match', label: 'Find AI Peer Match' },
+  { key: 'goals', label: 'My Goals' },
+];
 
 // Lets a student pick a time and turn one of their Matches into a
 // scheduled GroupStudySession. Each row owns its own input state, so this
@@ -77,7 +86,7 @@ const StudentDashboard = () => {
   const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState(null);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
-  // Active view tab state within dashboard: 'overview' | 'match' | 'goals'
+  // Active view tab state within dashboard -- one of the TABS keys
   const [activeTab, setActiveTab] = useState('overview');
 
   const fetchDashboardData = async () => {
@@ -217,56 +226,34 @@ const StudentDashboard = () => {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '1.5rem' }}>
-        <button
-          onClick={() => setActiveTab('overview')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            border: 'none',
-            borderBottom: activeTab === 'overview' ? '3px solid #3182ce' : 'none',
-            backgroundColor: 'transparent',
-            fontWeight: activeTab === 'overview' ? 'bold' : 'normal',
-            color: activeTab === 'overview' ? '#3182ce' : '#4a5568',
-            cursor: 'pointer',
-            fontSize: '1rem'
-          }}
-        >
-          Dashboard Overview
-        </button>
-        <button
-          onClick={() => setActiveTab('match')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            border: 'none',
-            borderBottom: activeTab === 'match' ? '3px solid #3182ce' : 'none',
-            backgroundColor: 'transparent',
-            fontWeight: activeTab === 'match' ? 'bold' : 'normal',
-            color: activeTab === 'match' ? '#3182ce' : '#4a5568',
-            cursor: 'pointer',
-            fontSize: '1rem'
-          }}
-        >
-          Find AI Peer Match
-        </button>
-        <button
-          onClick={() => setActiveTab('goals')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            border: 'none',
-            borderBottom: activeTab === 'goals' ? '3px solid #3182ce' : 'none',
-            backgroundColor: 'transparent',
-            fontWeight: activeTab === 'goals' ? 'bold' : 'normal',
-            color: activeTab === 'goals' ? '#3182ce' : '#4a5568',
-            cursor: 'pointer',
-            fontSize: '1rem'
-          }}
-        >
-          My Goals
-        </button>
+      <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {TABS.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                border: 'none',
+                borderBottom: active ? '3px solid #3182ce' : 'none',
+                backgroundColor: 'transparent',
+                fontWeight: active ? 'bold' : 'normal',
+                color: active ? '#3182ce' : '#4a5568',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'match' ? (
+      {activeTab === 'sessions' ? (
+        <MyStudySessions sessions={personalSessions} onChanged={refreshMatchesAndSessions} />
+      ) : activeTab === 'match' ? (
         <PeerMatchRequest onMatchCreated={refreshMatchesAndSessions} />
       ) : activeTab === 'goals' ? (
         <SubjectGoals />

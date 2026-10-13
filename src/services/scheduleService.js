@@ -10,6 +10,20 @@ export const getMyStudySessions = async () => {
   return response.data;
 };
 
+export const createStudySession = async ({ subject, start_time, end_time, goal }) => {
+  const response = await api.post('/scheduling/sessions/', {
+    subject,
+    start_time,
+    end_time,
+    goal,
+  });
+  return response.data;
+};
+
+export const deleteStudySession = async (sessionId) => {
+  await api.delete(`/scheduling/sessions/${sessionId}/`);
+};
+
 export const getMyGoals = async () => {
   const response = await api.get('/scheduling/goals/');
   return response.data;
