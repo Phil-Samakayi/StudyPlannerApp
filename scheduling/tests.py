@@ -1,11 +1,13 @@
 # scheduling/tests.py
 import datetime
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser
 from subjects.models import Subject
+from .availability import common_weekly_windows, has_common_availability, suggest_session_times
 from .models import ScheduleSlot, StudySession, SubjectGoal
 
 SLOTS_URL = "/api/scheduling/slots/"
@@ -308,3 +310,96 @@ class SubjectGoalTests(APITestCase):
         )
         response = self.client.patch(f"{GOALS_URL}{goal.id}/", {"description": "Still overdue, updated"})
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+
+class SharedAvailabilityTests(APITestCase):
+    """
+    Exercises scheduling/availability.py directly. A fixed "now" keeps the
+    concrete-date assertions stable: Tuesday 13 October 2026, 09:00 local.
+    """
+
+    def setUp(self):
+        self.tz = timezone.get_current_timezone()
+        self.now = timezone.make_aware(datetime.datetime(2026, 10, 13, 9, 0), self.tz)
+        self.alice = CustomUser.objects.create_user(
+            email="avail.alice@unza.zm", password="strongpass123", full_name="Alice"
+        )
+        self.bob = CustomUser.objects.create_user(
+            email="avail.bob@unza.zm", password="strongpass123", full_name="Bob"
+        )
+        self.cara = CustomUser.objects.create_user(
+            email="avail.cara@unza.zm", password="strongpass123", full_name="Cara"
+        )
+
+    def slot(self, student, day, start, end):
+        ScheduleSlot.objects.create(
+            student=student, day_of_week=day,
+            start_time=datetime.time(*start), end_time=datetime.time(*end),
+        )
+
+    def local(self, *args):
+        return timezone.make_aware(datetime.datetime(*args), self.tz).isoformat()
+
+    def test_partial_overlap_is_found(self):
+        # The case exact slot matching misses: 14-16 and 15-17 share 15-16.
+        self.slot(self.alice, 1, (14, 0), (16, 0))
+        self.slot(self.bob, 1, (15, 0), (17, 0))
+        self.assertEqual(common_weekly_windows([self.alice, self.bob]), {1: [(15 * 60, 16 * 60)]})
+
+    def test_no_overlap_gives_no_windows(self):
+        self.slot(self.alice, 1, (8, 0), (10, 0))
+        self.slot(self.bob, 1, (10, 0), (12, 0))  # touching, not overlapping
+        self.assertEqual(common_weekly_windows([self.alice, self.bob]), {})
+        self.assertFalse(has_common_availability([self.alice, self.bob]))
+
+    def test_adjacent_slots_are_merged_before_intersecting(self):
+        self.slot(self.alice, 2, (14, 0), (15, 0))
+        self.slot(self.alice, 2, (15, 0), (16, 0))
+        self.slot(self.bob, 2, (14, 30), (16, 0))
+        self.assertEqual(common_weekly_windows([self.alice, self.bob]), {2: [(14 * 60 + 30, 16 * 60)]})
+
+    def test_three_students_must_all_be_free(self):
+        self.slot(self.alice, 3, (9, 0), (17, 0))
+        self.slot(self.bob, 3, (10, 0), (14, 0))
+        self.slot(self.cara, 3, (13, 0), (18, 0))
+        self.assertEqual(common_weekly_windows([self.alice, self.bob, self.cara]), {3: [(13 * 60, 14 * 60)]})
+
+    def test_suggestions_are_concrete_upcoming_datetimes(self):
+        self.slot(self.alice, 1, (14, 0), (16, 0))  # Tuesday
+        self.slot(self.bob, 1, (15, 0), (17, 0))
+        result = suggest_session_times([self.alice, self.bob], now=self.now)
+        self.assertEqual(result["suggestions"], [{
+            "start": self.local(2026, 10, 13, 15, 0),
+            "end": self.local(2026, 10, 13, 16, 0),
+            "day_name": "Tuesday",
+            "duration_minutes": 60,
+        }])
+        self.assertEqual(result["students_without_availability"], [])
+
+    def test_windows_earlier_in_the_week_roll_over_to_next_week(self):
+        self.slot(self.alice, 0, (10, 0), (12, 0))  # Monday -- already past on Tuesday
+        self.slot(self.bob, 0, (10, 0), (12, 0))
+        result = suggest_session_times([self.alice, self.bob], now=self.now)
+        self.assertEqual(len(result["suggestions"]), 1)
+        self.assertEqual(result["suggestions"][0]["start"], self.local(2026, 10, 19, 10, 0))
+
+    def test_window_in_progress_starts_from_next_quarter_hour(self):
+        self.slot(self.alice, 1, (14, 0), (17, 0))
+        self.slot(self.bob, 1, (14, 0), (17, 0))
+        now = timezone.make_aware(datetime.datetime(2026, 10, 13, 15, 7), self.tz)
+        first = suggest_session_times([self.alice, self.bob], now=now)["suggestions"][0]
+        self.assertEqual(first["start"], self.local(2026, 10, 13, 15, 15))
+        self.assertEqual(first["duration_minutes"], 105)
+
+    def test_windows_shorter_than_minimum_are_skipped(self):
+        self.slot(self.alice, 1, (14, 0), (16, 0))
+        self.slot(self.bob, 1, (15, 30), (17, 0))  # only 30 minutes shared
+        self.assertEqual(suggest_session_times([self.alice, self.bob], now=self.now)["suggestions"], [])
+        relaxed = suggest_session_times([self.alice, self.bob], now=self.now, min_minutes=30)
+        self.assertEqual(len(relaxed["suggestions"]), 1)
+
+    def test_student_without_slots_is_reported(self):
+        self.slot(self.alice, 1, (14, 0), (16, 0))
+        result = suggest_session_times([self.alice, self.bob], now=self.now)
+        self.assertEqual(result["suggestions"], [])
+        self.assertEqual(result["students_without_availability"], [self.bob])

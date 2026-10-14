@@ -8,7 +8,7 @@ import PeerMatchRequest from './PeerMatchRequest';
 import SubjectGoals from './SubjectGoals';
 import MyStudySessions from './MyStudySessions';
 import UpcomingReminders from './UpcomingReminders';
-import { scheduleSession, completeSession, cancelSession } from '../services/matchService';
+import { scheduleSession, completeSession, cancelSession, getSuggestedTimes } from '../services/matchService';
 import { getMyStudySessions } from '../services/scheduleService';
 
 // Dashboard tabs, in display order.
@@ -19,13 +19,52 @@ const TABS = [
   { key: 'goals', label: 'My Goals' },
 ];
 
+// Formats a Date as the value a <input type="datetime-local"> expects,
+// in the browser's local time: "YYYY-MM-DDTHH:MM".
+const toLocalInputValue = (date) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const formatSuggestion = (s) => {
+  const start = new Date(s.start);
+  const end = new Date(s.end);
+  const day = start.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time(start)}–${time(end)}`;
+};
+
+const MAX_SUGGESTIONS_SHOWN = 5;
+
 // Lets a student pick a time and turn one of their Matches into a
 // scheduled GroupStudySession. Each row owns its own input state, so this
-// lives outside the list `.map()` as its own component.
+// lives outside the list `.map()` as its own component. It also offers
+// up to five upcoming times when every match participant is free, based on
+// their weekly availability; clicking one fills in the time.
 const ScheduleSessionForm = ({ matchId, onScheduled }) => {
   const [scheduledTime, setScheduledTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [suggestions, setSuggestions] = useState(null); // null = not loaded / unavailable
+  const [withoutAvailability, setWithoutAvailability] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSuggestedTimes(matchId)
+      .then((data) => {
+        if (cancelled) return;
+        setSuggestions(data.suggestions || []);
+        setWithoutAvailability(data.students_without_availability || []);
+      })
+      .catch(() => {
+        // Suggestions are a convenience: if they can't load, the manual
+        // date/time picker below still works, so fail quietly.
+        if (!cancelled) setSuggestions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId]);
 
   const handleSchedule = async () => {
     if (!scheduledTime) return;
@@ -43,8 +82,60 @@ const ScheduleSessionForm = ({ matchId, onScheduled }) => {
     }
   };
 
+  const renderSuggestions = () => {
+    if (suggestions === null) return null;
+    if (withoutAvailability.length > 0) {
+      return (
+        <div style={{ fontSize: '0.75rem', color: '#718096', marginBottom: '0.4rem' }}>
+          No suggested times yet: {withoutAvailability.join(', ')} {withoutAvailability.length === 1 ? "hasn't" : "haven't"} set
+          their availability. Pick a time manually below.
+        </div>
+      );
+    }
+    if (suggestions.length === 0) {
+      return (
+        <div style={{ fontSize: '0.75rem', color: '#718096', marginBottom: '0.4rem' }}>
+          No shared free time in the next 7 days. Pick a time manually below.
+        </div>
+      );
+    }
+    return (
+      <div style={{ marginBottom: '0.4rem' }}>
+        <div style={{ fontSize: '0.75rem', color: '#4a5568', marginBottom: '0.25rem' }}>
+          Suggested times (you're both free):
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+          {suggestions.slice(0, MAX_SUGGESTIONS_SHOWN).map((s) => {
+            const value = toLocalInputValue(new Date(s.start));
+            const selected = scheduledTime === value;
+            return (
+              <button
+                key={s.start}
+                type="button"
+                onClick={() => setScheduledTime(value)}
+                title={`${s.duration_minutes} minutes free`}
+                style={{
+                  padding: '0.2rem 0.55rem',
+                  fontSize: '0.75rem',
+                  borderRadius: '999px',
+                  border: selected ? '1px solid #2b6cb0' : '1px solid #bee3f8',
+                  backgroundColor: selected ? '#2b6cb0' : '#ebf8ff',
+                  color: selected ? '#fff' : '#2b6cb0',
+                  cursor: 'pointer',
+                }}
+              >
+                {formatSuggestion(s)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ marginTop: '0.5rem' }}>
+      {renderSuggestions()}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           type="datetime-local"
