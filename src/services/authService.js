@@ -31,4 +31,4 @@ export const getProfile = async () => {
 export const updateProfile = async (fields) => {
   const response = await api.patch('/accounts/profile/', fields);
   return response.data;
-};
+};
