@@ -9,6 +9,7 @@ import StudentDashboard from './components/StudentDashboard';
 import AvailabilityGrid from './components/AvailabilityGrid';
 import SelfAssessmentForm from './components/SelfAssessmentForm';
 import PeerMatchRequest from './components/PeerMatchRequest';
+import ProfilePage from './components/ProfilePage';
 import { login, register } from './services/authService';
 
 // Flattens a DRF error response ({"email": ["already exists"]} or
@@ -232,6 +233,7 @@ function App() {
               <Route path="/availability" element={<AvailabilityGrid />} />
               <Route path="/assessment" element={<SelfAssessmentForm />} />
               <Route path="/match" element={<PeerMatchRequest />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             {/* Fallback Route */}
@@ -243,4 +245,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;

@@ -25,3 +25,10 @@ export const getProfile = async () => {
   const response = await api.get('/accounts/profile/');
   return response.data;
 };
+
+// Partial update of the student's own profile: any of
+// { student_number, program, year_of_study }.
+export const updateProfile = async (fields) => {
+  const response = await api.patch('/accounts/profile/', fields);
+  return response.data;
+};

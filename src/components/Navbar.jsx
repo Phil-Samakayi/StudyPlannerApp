@@ -37,6 +37,9 @@ const Navbar = ({ isAuthenticated, setIsAuthenticated }) => {
           <Link to="/assessment" style={{ color: '#e2e8f0', textDecoration: 'none', fontWeight: '500' }}>
             Self Assessment
           </Link>
+          <Link to="/profile" style={{ color: '#e2e8f0', textDecoration: 'none', fontWeight: '500' }}>
+            Profile
+          </Link>
           <button
             onClick={handleLogout}
             style={{
@@ -57,4 +60,4 @@ const Navbar = ({ isAuthenticated, setIsAuthenticated }) => {
   );
 };
 
-export default Navbar;
+export default Navbar;

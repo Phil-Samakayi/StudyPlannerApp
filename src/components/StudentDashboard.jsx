@@ -8,6 +8,7 @@ import PeerMatchRequest from './PeerMatchRequest';
 import SubjectGoals from './SubjectGoals';
 import MyStudySessions from './MyStudySessions';
 import UpcomingReminders from './UpcomingReminders';
+import { isProfileIncomplete } from './ProfilePage';
 import { scheduleSession, completeSession, cancelSession, getSuggestedTimes } from '../services/matchService';
 import { getMyStudySessions } from '../services/scheduleService';
 
@@ -307,6 +308,39 @@ const StudentDashboard = () => {
           </button>
         </div>
       </header>
+
+      {isProfileIncomplete(profile) && (
+        <div style={{
+          padding: '0.75rem 1rem',
+          backgroundColor: '#fffaf0',
+          border: '1px solid #fbd38d',
+          color: '#975a16',
+          borderRadius: '6px',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem',
+          fontSize: '0.9rem'
+        }}>
+          <span>Your profile is incomplete. Add your student number and programme.</span>
+          <button
+            onClick={() => navigate('/profile')}
+            style={{
+              padding: '0.35rem 0.85rem',
+              backgroundColor: '#dd6b20',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          >
+            Complete Profile
+          </button>
+        </div>
+      )}
 
       <UpcomingReminders personalSessions={personalSessions} groupSessions={sessions} />
 
