@@ -27,14 +27,6 @@ export const getFeedbackMetrics = async () => {
   return response.data;
 };
 
-// Upcoming times (next 7 days) when everyone in this match is free.
-// Returns { suggestions: [{ start, end, day_name, duration_minutes }],
-//           students_without_availability: [name, ...] }.
-export const getSuggestedTimes = async (matchId) => {
-  const response = await api.get(`/matching/matches/${matchId}/suggested-times/`);
-  return response.data;
-};
-
 export const scheduleSession = async (matchId, scheduledTime) => {
   const response = await api.post('/matching/sessions/', {
     match: matchId,
