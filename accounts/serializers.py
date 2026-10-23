@@ -21,12 +21,14 @@ UserSerializer = CustomUserSerializer
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for user registration.
+    The role is always assigned by the server; a client cannot choose it.
     """
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = CustomUser
         fields = ["id", "email", "full_name", "first_name", "last_name", "password", "role"]
+        read_only_fields = ["role"]
 
     def create(self, validated_data):
         user = CustomUser.objects.create_user(

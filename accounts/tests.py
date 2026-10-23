@@ -55,6 +55,21 @@ class RegistrationTests(APITestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_register_ignores_role_and_always_creates_a_student(self):
+        # The role must be assigned by the server, never chosen by the client.
+        response = self.client.post(REGISTER_URL, {
+            "email": "sneaky@unza.zm",
+            "full_name": "Sneaky User",
+            "password": "correcthorse123",
+            "role": "ADMIN",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        user = CustomUser.objects.get(email="sneaky@unza.zm")
+        self.assertEqual(user.role, "STUDENT")
+        self.assertFalse(user.is_staff)
+        self.assertTrue(StudentProfile.objects.filter(user=user).exists())
+
 
 class LoginTests(APITestCase):
     def setUp(self):
