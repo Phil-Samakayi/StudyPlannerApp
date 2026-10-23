@@ -175,5 +175,18 @@ All paths start with `/api/`. Every endpoint except registration and login needs
 
 - **`fe_sendauth: no password supplied`:** set `DB_PASSWORD` in the same terminal before `runserver`.
 - **scikit-learn fails to import on Windows:** use Python 3.12.
+- **`no pq wrapper available` or "An Application Control policy has blocked this file":** Windows Smart App Control is blocking the PostgreSQL driver bundled with `psycopg[binary]`. Use the client library that comes with your PostgreSQL installation instead (replace `18` with your PostgreSQL version):
+
+  ```powershell
+  # current terminal only
+  $env:Path = "C:\Program Files\PostgreSQL\18\bin;$env:Path"
+  $env:PSYCOPG_IMPL = "python"
+
+  # or permanently (open a new terminal afterwards)
+  [Environment]::SetEnvironmentVariable("Path", "C:\Program Files\PostgreSQL\18\bin;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")
+  setx PSYCOPG_IMPL "python"
+  ```
+
+  To run only the tests, you can skip PostgreSQL altogether with `$env:DATABASE_URL = "sqlite:///test.sqlite3"`.
 - **`npm` or `node` not found:** install Node.js LTS and reopen the terminal.
 - **No courses in the drop-downs:** add subjects in the admin site (step 4).

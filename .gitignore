@@ -18,6 +18,7 @@ dist/
 .vite/
 
 # Editors / OS
+Claude outputs/
 .vscode/
 .idea/
 .DS_Store
