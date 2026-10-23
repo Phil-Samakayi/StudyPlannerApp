@@ -9,6 +9,8 @@ env/
 # Django
 db.sqlite3
 *.log
+staticfiles/
+media/
 
 # Node / frontend
 node_modules/
@@ -22,3 +24,8 @@ dist/
 
 # Env
 .env
+
+# Local scripts and data dumps (may contain credentials or personal data)
+dbtest.py
+data.json
+datadump.json
