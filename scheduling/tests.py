@@ -153,6 +153,18 @@ class StudySessionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(StudySession.objects.get().student, self.student)
 
+    def test_list_only_returns_own_study_sessions(self):
+        other = CustomUser.objects.create_user(
+            email="session.other@unza.zm", password="strongpass123", full_name="Session Other"
+        )
+        StudySession.objects.create(
+            student=other, subject=self.subject,
+            start_time="2026-09-20T14:00:00Z", end_time="2026-09-20T16:00:00Z", goal="Private plan",
+        )
+        response = self.client.get(SESSIONS_URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
     def test_session_end_before_start_is_rejected(self):
         response = self.client.post(SESSIONS_URL, {
             "subject": self.subject.id,
