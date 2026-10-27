@@ -11,6 +11,7 @@ from .engine import generate_peer_matches
 from .models import Match, MatchParticipant, GroupStudySession, GroupStudySessionStatus, Feedback
 
 REQUEST_MATCH_URL = "/api/matching/matches/request-match/"
+MATCHES_URL = "/api/matching/matches/"
 SESSIONS_URL = "/api/matching/sessions/"
 FEEDBACK_URL = "/api/matching/feedback/"
 FEEDBACK_METRICS_URL = "/api/matching/feedback/metrics/"
@@ -53,37 +54,62 @@ class MatchingEngineTests(APITestCase):
         results = generate_peer_matches(self.requester, self.subject.id)
         self.assertEqual(results, [])
 
-    def test_ranks_complementary_profile_above_similar_profile(self):
+    def test_complementary_profile_ranked_above_similar_profile(self):
+        # Both candidates fully cover the requester's low need (2), so coverage ties at 1.0;
+        # the mirror-image profile is ranked first because more support can flow between them.
         results = generate_peer_matches(self.requester, self.subject.id)
-        candidate_ids = [r["candidate"].id for r in results]
-        self.assertIn(self.complementary.id, candidate_ids)
-        self.assertIn(self.similar.id, candidate_ids)
+        self.assertEqual(results[0]["candidate"], self.complementary)
+        self.assertEqual(results[1]["candidate"], self.similar)
+        self.assertGreater(results[0]["support_exchanged"], results[1]["support_exchanged"])
 
-        complementary_score = next(r["relevance_score"] for r in results if r["candidate"].id == self.complementary.id)
-        similar_score = next(r["relevance_score"] for r in results if r["candidate"].id == self.similar.id)
-        self.assertGreater(complementary_score, similar_score)
-
-    def test_known_limitation_cosine_similarity_ties_on_proportional_profiles(self):
-        """
-        Documents a real limitation, not an assertion of correct behavior:
-        because the engine scores pairs with plain cosine similarity, any two
-        profile vectors that are positive scalar multiples of each other tie
-        at 1.0 -- including a candidate who merely *scales* the requester's
-        profile rather than truly complementing it. Example: requester
-        (strength=5, weakness=1) has vector [1, 1]; a same-profile peer
-        (strength=5, weakness=1) has vector [5, 5] -- parallel to [1, 1], so
-        cosine similarity can't tell them apart from a perfect complement.
-        Worth revisiting for the AI matching sprint (e.g. weight in raw
-        score magnitude, not just direction).
-        """
-        same_profile_peer = make_student("engine.tie@unza.zm", "Tie Case")
-        tie_requester = make_student("engine.tie.requester@unza.zm", "Tie Requester")
-        for student in (tie_requester, same_profile_peer):
+    def _profiles(self, requester, candidates):
+        """Create a requester and candidates as (label, strength, need) and return the results by label."""
+        req = make_student(f"req.{requester[0]}@unza.zm", "Requester")
+        SelfAssessment.objects.create(
+            student=req, subject=self.subject, strength_score=requester[1], weakness_score=requester[2]
+        )
+        by_id = {}
+        for label, strength, need in candidates:
+            student = make_student(f"cand.{label}@unza.zm", label)
             SelfAssessment.objects.create(
-                student=student, subject=self.subject, strength_score=5, weakness_score=1
+                student=student, subject=self.subject, strength_score=strength, weakness_score=need
             )
-        results = generate_peer_matches(tie_requester, self.subject.id)
-        self.assertEqual(results[0]["relevance_score"], 1.0)
+            by_id[student.id] = label
+        results = generate_peer_matches(req, self.subject.id, top_n=50)
+        return {by_id[r["candidate"].id]: r for r in results if r["candidate"].id in by_id}
+
+    def test_strong_candidate_outranks_weak_candidates_for_balanced_requester(self):
+        # The case that cosine similarity could not separate (all of these scored 1.00 before).
+        r = self._profiles(("bal", 2, 4), [
+            ("strong", 5, 1), ("strong_gaps", 5, 2), ("average", 3, 3),
+            ("as_weak", 2, 4), ("weaker", 1, 5),
+        ])
+        self.assertEqual(r["strong"]["coverage"], 1.0)
+        self.assertEqual(r["strong_gaps"]["coverage"], 1.0)
+        self.assertGreater(r["strong"]["coverage"], r["average"]["coverage"])
+        self.assertGreater(r["average"]["coverage"], r["as_weak"]["coverage"])
+        self.assertGreater(r["as_weak"]["coverage"], r["weaker"]["coverage"])
+
+    def test_unsuitable_candidate_scores_low(self):
+        # Two students who both need a lot of help and offer little.
+        r = self._profiles(("weak", 1, 5), [("unsuitable", 1, 5), ("helper", 5, 1)])
+        self.assertAlmostEqual(r["unsuitable"]["coverage"], 0.2, places=3)
+        self.assertGreater(r["helper"]["coverage"], r["unsuitable"]["coverage"])
+
+    def test_similar_strong_profiles_score_full_coverage_for_low_need(self):
+        # A requester who needs little help is fully covered by an equally strong peer.
+        r = self._profiles(("strong_req", 5, 1), [("same", 5, 1)])
+        self.assertEqual(r["same"]["coverage"], 1.0)
+
+    def test_relevance_scores_always_between_0_and_1(self):
+        from .engine import coverage_score
+        for rs in range(1, 6):
+            for rn in range(1, 6):
+                for cs in range(1, 6):
+                    for cn in range(1, 6):
+                        score = coverage_score(rs, rn, cs, cn)
+                        self.assertGreater(score, 0)
+                        self.assertLessEqual(score, 1)
 
     def test_overlapping_availability_outranks_no_overlap(self):
         # Two otherwise-identical complementary candidates; only one shares a free slot.
@@ -102,6 +128,63 @@ class MatchingEngineTests(APITestCase):
         overlap_score = next(r["relevance_score"] for r in results if r["candidate"].id == overlapping.id)
         no_overlap_score = next(r["relevance_score"] for r in results if r["candidate"].id == no_overlap.id)
         self.assertGreater(overlap_score, no_overlap_score)
+
+
+class MatchingAvailabilityTests(APITestCase):
+    """The five availability cases from the supervisor's review, checked through the engine."""
+
+    def setUp(self):
+        self.subject = Subject.objects.create(code="CSC302", name="Algorithms")
+        self.a = make_student("avail.a@unza.zm", "Student A")
+        self.b = make_student("avail.b@unza.zm", "Student B")
+        SelfAssessment.objects.create(student=self.a, subject=self.subject, strength_score=2, weakness_score=4)
+        SelfAssessment.objects.create(student=self.b, subject=self.subject, strength_score=5, weakness_score=1)
+
+    def slot(self, student, start, end, day=2):
+        ScheduleSlot.objects.create(student=student, day_of_week=day, start_time=start, end_time=end)
+
+    def result(self):
+        return generate_peer_matches(self.a, self.subject.id)[0]
+
+    def test_partial_overlap_counts_as_shared(self):
+        self.slot(self.a, "10:00", "12:00")
+        self.slot(self.b, "11:00", "13:00")
+        self.assertEqual(self.result()["availability"], "shared")
+        self.assertEqual(self.result()["relevance_score"], 1.0)
+
+    def test_exact_overlap_counts_as_shared(self):
+        self.slot(self.a, "10:00", "12:00")
+        self.slot(self.b, "10:00", "12:00")
+        self.assertEqual(self.result()["availability"], "shared")
+
+    def test_adjacent_intervals_are_not_shared(self):
+        self.slot(self.a, "10:00", "11:00")
+        self.slot(self.b, "11:00", "12:00")
+        self.assertEqual(self.result()["availability"], "none")
+        self.assertEqual(self.result()["relevance_score"], 0.75)
+
+    def test_no_overlap_is_penalised(self):
+        self.slot(self.a, "10:00", "11:00")
+        self.slot(self.b, "12:00", "13:00")
+        self.assertEqual(self.result()["availability"], "none")
+        self.assertEqual(self.result()["relevance_score"], 0.75)
+
+    def test_missing_availability_is_unknown_not_compatible(self):
+        self.slot(self.a, "10:00", "12:00")  # B has no availability at all
+        result = self.result()
+        self.assertEqual(result["availability"], "unknown")
+        self.assertEqual(result["relevance_score"], 0.9)
+        self.assertLess(result["relevance_score"], 1.0)
+
+
+class MatchScoreValidationTests(APITestCase):
+    def test_relevance_score_outside_0_to_1_is_rejected(self):
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            Match(relevance_score=3).full_clean()
+        with self.assertRaises(ValidationError):
+            Match(relevance_score=-0.1).full_clean()
+        Match(relevance_score=0.85).full_clean()
 
 
 class RequestMatchViewTests(APITestCase):
@@ -286,6 +369,40 @@ class FeedbackTests(APITestCase):
         response = self.client.post(FEEDBACK_URL, {"session": session.id, "rating": 3, "comment": "Second"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Feedback.objects.filter(session=session, student=self.student_a).count(), 1)
+
+
+class DataIsolationTests(APITestCase):
+    """A student must not see another student's matches, GroupStudy sessions or feedback."""
+
+    def setUp(self):
+        self.a = make_student("iso.a@unza.zm", "Student A")
+        self.b = make_student("iso.b@unza.zm", "Student B")
+        self.outsider = make_student("iso.outsider@unza.zm", "Outsider")
+        self.match = Match.objects.create(relevance_score=0.9)
+        MatchParticipant.objects.create(match=self.match, student=self.a)
+        MatchParticipant.objects.create(match=self.match, student=self.b)
+        self.session = GroupStudySession.objects.create(
+            match=self.match, scheduled_time=timezone.now(), status=GroupStudySessionStatus.COMPLETED
+        )
+        Feedback.objects.create(student=self.a, session=self.session, rating=5, comment="Private comment")
+        self.client.force_authenticate(user=self.outsider)
+
+    def test_outsider_cannot_list_or_retrieve_another_students_match(self):
+        self.assertEqual(self.client.get(MATCHES_URL).data, [])
+        self.assertEqual(self.client.get(f"{MATCHES_URL}{self.match.id}/").status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_outsider_cannot_list_another_students_group_sessions(self):
+        self.assertEqual(self.client.get(SESSIONS_URL).data, [])
+
+    def test_student_cannot_read_another_students_feedback(self):
+        self.assertEqual(self.client.get(FEEDBACK_URL).data, [])
+
+    def test_feedback_rating_outside_1_to_5_is_rejected(self):
+        self.client.force_authenticate(user=self.b)
+        for rating in (0, 6):
+            response = self.client.post(FEEDBACK_URL, {"session": self.session.id, "rating": rating})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Feedback.objects.filter(student=self.b).exists())
 
 
 class FeedbackMetricsTests(APITestCase):

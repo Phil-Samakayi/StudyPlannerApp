@@ -7,7 +7,7 @@ tables in the ER diagram (Figure 4, v1.0).
 This app is the "in-process matching app" shown in the system
 architecture diagram (Figure 5): it lives in the same Django project
 and database as the other apps, but keeps the AI matching concerns
-(scikit-learn scoring, ranked results, GroupStudy lifecycle) isolated
+(coverage-based scoring, ranked results, GroupStudy lifecycle) isolated
 behind its own models and, later, its own REST endpoint
 (/api/matches/...).
 """
@@ -23,6 +23,7 @@ class Match(models.Model):
     (Student "2..*" -- "0..*" Match in the domain model).
     """
     relevance_score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Model-computed compatibility score for this pairing, 0.0-1.0."
     )
     created_at = models.DateTimeField(auto_now_add=True)
